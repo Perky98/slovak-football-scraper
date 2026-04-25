@@ -13,8 +13,6 @@ const fetchArticles = server$(async () => {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Article[];
 });
 
-const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
-
 export default component$(() => {
   const allArticles = useSignal<Article[]>([]);
   const league = useSignal("");
@@ -27,11 +25,7 @@ export default component$(() => {
     loading.value = false;
   });
 
-  const cutoff = Date.now() - TWO_DAYS_MS;
-
   const filtered = allArticles.value.filter((a) => {
-    const dateStr = a.published_at || a.scraped_at;
-    if (dateStr && new Date(dateStr).getTime() < cutoff) return false;
     if (league.value && a.league !== league.value) return false;
     if (category.value && a.category !== category.value) return false;
     return true;
@@ -81,7 +75,7 @@ export default component$(() => {
         {loading.value ? (
           <div class="state-msg">Načítavam články...</div>
         ) : filtered.length === 0 ? (
-          <div class="state-msg">Žiadne články za posledné 2 dni.</div>
+          <div class="state-msg">Žiadne články.</div>
         ) : (
           <div class="grid">
             {filtered.map((a) => (
