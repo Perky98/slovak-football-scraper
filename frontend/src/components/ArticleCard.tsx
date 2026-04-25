@@ -25,7 +25,7 @@ export const ArticleCard = component$<Props>(({ article }) => {
   const categoryColor = article.category ? (CATEGORY_COLOR[article.category] ?? "#3b82f6") : "#3b82f6";
   const leagueLabel = LEAGUE_LABELS[article.league] ?? article.league;
   const pubDate = formatDate(article.published_at);
-  const preview = truncate(article.content, 250);
+  const preview = truncate(article.summary ?? article.content, 300);
 
   return (
     <article class="card">
