@@ -25,12 +25,12 @@ class BaseScraper(ABC):
     def get_article_links(self) -> list[str]:
         pass
 
-    def extract_article_content(self, url: str) -> tuple[str, str]:
-        """Returns (title, content). Both empty string on failure."""
+    def extract_article_content(self, url: str) -> tuple[str, str, Optional[str]]:
+        """Returns (title, content, date_str). date_str is ISO string or None."""
         try:
             downloaded = trafilatura.fetch_url(url)
             if not downloaded:
-                return "", ""
+                return "", "", None
             text = trafilatura.extract(
                 downloaded,
                 include_tables=False,
@@ -39,10 +39,11 @@ class BaseScraper(ABC):
             )
             metadata = trafilatura.extract_metadata(downloaded)
             title = (metadata.title or "") if metadata else ""
-            return title, text or ""
+            date_str = (metadata.date or None) if metadata else None
+            return title, text or "", date_str
         except Exception as e:
             logger.error(f"Content extraction failed for {url}: {e}")
-            return "", ""
+            return "", "", None
 
     def fetch_page(self, url: str) -> Optional[str]:
         try:

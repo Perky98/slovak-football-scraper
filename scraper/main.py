@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from dotenv import load_dotenv
 
@@ -30,14 +30,26 @@ def process_club(db, club: dict) -> int:
         logger.warning(f"  No links found for {name}")
         return 0
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=2)
     saved = 0
     for url in links:
         if article_exists(db, url):
             continue
 
-        title, content = scraper.extract_article_content(url)
+        title, content, date_str = scraper.extract_article_content(url)
         if len(content) < 80:
             continue
+
+        # Skip articles older than 2 days when date is known
+        published_at = None
+        if date_str:
+            try:
+                published_at = datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc)
+                if published_at < cutoff:
+                    logger.info(f"  skip (too old: {date_str}) {url[-60:]}")
+                    continue
+            except ValueError:
+                pass
 
         analysis = analyze_article(title, content, name)
 
@@ -49,6 +61,7 @@ def process_club(db, club: dict) -> int:
             title=title,
             content=content,
             scraped_at=datetime.utcnow(),
+            published_at=published_at,
             summary=analysis.get("summary"),
             category=analysis.get("category"),
             sentiment=analysis.get("sentiment"),

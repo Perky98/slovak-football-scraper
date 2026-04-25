@@ -21,9 +21,10 @@ def test(short_name: str = "slovan"):
 
     # links sú v poradí zo stránky — prvý = najnovší
     latest_url = links[0]
-    title, content = scraper.extract_article_content(latest_url)
+    title, content, date_str = scraper.extract_article_content(latest_url)
     print(f"URL:     {latest_url}")
     print(f"Nadpis:  {title}")
+    print(f"Dátum:   {date_str or '(nezistený)'}")
     print(f"Obsah:   {content[:200]}...\n")
 
     print("Posielam do DeepSeek...")
