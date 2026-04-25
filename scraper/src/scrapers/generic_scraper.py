@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 ARTICLE_PATH_KEYWORDS = [
     "/aktuality/", "/novinky/", "/clanok", "/clanek",
-    "/article/", "/post/", "/tlacove-spravy/",
+    "/article/", "/post/", "/tlacove-spravy/", "/aktualita-",
 ]
 
 SKIP_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".mp4", ".zip"}
@@ -34,6 +34,12 @@ class GenericScraper(BaseScraper):
             logger.info(f"[{self.club_config['short_name']}] {len(links)} links via RSS")
             return links
 
+        if self.club_config.get("sitemap_url"):
+            links = self._try_sitemap(self.club_config["sitemap_url"])
+            if links:
+                logger.info(f"[{self.club_config['short_name']}] {len(links)} links via sitemap")
+                return links
+
         links = self._scrape_news_page()
         logger.info(f"[{self.club_config['short_name']}] {len(links)} links via HTML")
         return links
@@ -49,6 +55,14 @@ class GenericScraper(BaseScraper):
             except Exception:
                 continue
         return []
+
+    def _try_sitemap(self, sitemap_url: str) -> list[str]:
+        xml = self.fetch_page(sitemap_url)
+        if not xml:
+            return []
+        urls = re.findall(r"<loc>\s*(https?://[^\s<]+)\s*</loc>", xml)
+        articles = [u for u in urls if self._looks_like_article(u) and not SKIP_URL_PATTERNS.search(u)]
+        return self._sort_by_id(articles)[:30]
 
     def _scrape_news_page(self) -> list[str]:
         html = self.fetch_page(self.club_config["news_url"])

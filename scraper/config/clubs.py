@@ -72,6 +72,7 @@ NIKE_LIGA_CLUBS = [
         "short_name": "kosice",
         "base_url": "https://www.fckosice.sk",
         "news_url": "https://www.fckosice.sk/aktuality",
+        "sitemap_url": "https://www.fckosice.sk/sitemap.xml",
         "league": "nike_liga",
         "active": True,
     },
@@ -94,8 +95,8 @@ NIKE_LIGA_CLUBS = [
     {
         "name": "MFK Skalica",
         "short_name": "skalica",
-        "base_url": "https://novinky.mfkskalica.sk",
-        "news_url": "https://novinky.mfkskalica.sk/",
+        "base_url": "https://www.mfkskalica.sk",
+        "news_url": "https://www.mfkskalica.sk/",
         "league": "nike_liga",
         "active": True,
     },
