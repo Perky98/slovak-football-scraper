@@ -39,6 +39,7 @@
     "vite-tsconfig-paths": "^4.2.1"
   },
   "dependencies": {
-    "firebase": "^12.12.1"
+    "firebase": "^12.12.1",
+    "firebase-admin": "^13.8.0"
   }
 }

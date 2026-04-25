@@ -1,12 +1,21 @@
 import { component$, useSignal, useTask$ } from "@builder.io/qwik";
 import { type DocumentHead, server$ } from "@builder.io/qwik-city";
-import {
-  collection, getDocs, orderBy, query,
-  deleteDoc, updateDoc, doc,
-} from "firebase/firestore";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "~/lib/firebase";
 import type { Article } from "~/lib/types";
 import { CATEGORY_LABELS } from "~/lib/types";
+
+// ── server-side Firebase Admin operations (bypass Firestore security rules) ──
+
+const doApprove = server$(async (articleId: string) => {
+  const { getAdminDb } = await import("~/lib/admin-db");
+  await getAdminDb().collection("articles").doc(articleId).update({ approved: true });
+});
+
+const doDelete = server$(async (articleId: string) => {
+  const { getAdminDb } = await import("~/lib/admin-db");
+  await getAdminDb().collection("articles").doc(articleId).delete();
+});
 
 const fetchAllArticles = server$(async () => {
   const snap = await getDocs(
@@ -15,12 +24,15 @@ const fetchAllArticles = server$(async () => {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Article[];
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default component$(() => {
   const passwordInput = useSignal("");
   const authed = useSignal(false);
   const wrongPass = useSignal(false);
   const articles = useSignal<Article[]>([]);
   const loading = useSignal(false);
+  const errorMsg = useSignal("");
   const tab = useSignal<"pending" | "all">("pending");
 
   useTask$(({ track }) => {
@@ -87,11 +99,19 @@ export default component$(() => {
         <span class="admin-count">{articles.value.length} článkov celkom</span>
         <button
           class="btn-logout"
-          onClick$={() => { authed.value = false; articles.value = []; passwordInput.value = ""; }}
+          onClick$={() => {
+            authed.value = false;
+            articles.value = [];
+            passwordInput.value = "";
+          }}
         >
           Odhlásiť
         </button>
       </div>
+
+      {errorMsg.value && (
+        <div class="admin-error-banner">{errorMsg.value}</div>
+      )}
 
       <div class="admin-tabs">
         <button
@@ -148,10 +168,15 @@ export default component$(() => {
                       <button
                         class="btn-approve"
                         onClick$={async () => {
-                          await updateDoc(doc(db, "articles", a.id), { approved: true });
-                          articles.value = articles.value.map((x) =>
-                            x.id === a.id ? { ...x, approved: true } : x
-                          );
+                          errorMsg.value = "";
+                          try {
+                            await doApprove(a.id);
+                            articles.value = articles.value.map((x) =>
+                              x.id === a.id ? { ...x, approved: true } : x
+                            );
+                          } catch (e: any) {
+                            errorMsg.value = `Chyba: ${e?.message ?? e}`;
+                          }
                         }}
                       >
                         Schváliť
@@ -161,8 +186,13 @@ export default component$(() => {
                       class="btn-delete"
                       onClick$={async () => {
                         if (!confirm(`Naozaj zmazať: "${a.title}"?`)) return;
-                        await deleteDoc(doc(db, "articles", a.id));
-                        articles.value = articles.value.filter((x) => x.id !== a.id);
+                        errorMsg.value = "";
+                        try {
+                          await doDelete(a.id);
+                          articles.value = articles.value.filter((x) => x.id !== a.id);
+                        } catch (e: any) {
+                          errorMsg.value = `Chyba: ${e?.message ?? e}`;
+                        }
                       }}
                     >
                       Odstrániť

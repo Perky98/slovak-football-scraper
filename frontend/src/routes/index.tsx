@@ -24,10 +24,16 @@ export default component$(() => {
     loading.value = false;
   });
 
-  const filtered = allArticles.value.filter((a) => {
-    if (category.value && a.category !== category.value) return false;
-    return true;
-  });
+  const filtered = allArticles.value
+    .filter((a) => {
+      if (category.value && a.category !== category.value) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.published_at ?? a.scraped_at).getTime();
+      const db2 = new Date(b.published_at ?? b.scraped_at).getTime();
+      return db2 - da;
+    });
 
   return (
     <div class="app">

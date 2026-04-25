@@ -349,3 +349,10 @@ body {
   cursor: pointer;
 }
 .btn-delete:hover { background: #fef2f2; border-color: #ef4444; }
+.admin-error-banner {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-bottom: 1px solid #fecaca;
+  padding: 10px 24px;
+  font-size: 0.875rem;
+}
