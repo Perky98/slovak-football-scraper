@@ -18,7 +18,8 @@ SKIP_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".mp4", ".zip"}
 SKIP_URL_PATTERNS = re.compile(
     r"(index\.php|index\.asp|\bpage=\d|\bpage/\d|/tag/|/category/|/kategoria/"
     r"|/archiv/?$|/aktuality/?$|/novinky/?$|/spravy/?$|/news/?$|\?kde="
-    r"|press-zona|zona\.php|contact|kontakt|partneri|historia|stadion|soupiska|zapasy\.asp)",
+    r"|press-zona|zona\.php|contact|kontakt|partneri|historia|stadion|soupiska|zapasy\.asp"
+    r"|vstupenk|permanentk|zabezpec-si|predaj-vstupeniek|kup-listok|tickets?[=-])",
     re.IGNORECASE,
 )
 
@@ -86,15 +87,15 @@ class GenericScraper(BaseScraper):
 
     @staticmethod
     def _sort_by_id(links: list[str]) -> list[str]:
-        """Sort article links newest-first using the largest integer found in the URL path."""
+        """Sort article links newest-first by the largest 4+ digit number in the full URL."""
         def url_id(url: str) -> int:
-            nums = re.findall(r"\d+", urlparse(url).path)
-            return max((int(n) for n in nums if len(n) >= 4), default=0)
+            # Search full URL (path + query) to catch IDs like clanek.asp?id=slug-12273
+            nums = re.findall(r"\d{4,}", url)
+            return max((int(n) for n in nums), default=0)
 
         has_id = [u for u in links if url_id(u) > 0]
         no_id  = [u for u in links if url_id(u) == 0]
 
-        # Only sort if most links have IDs (otherwise preserve page order)
         if len(has_id) >= len(links) // 2:
             return sorted(has_id, key=url_id, reverse=True) + no_id
         return links
