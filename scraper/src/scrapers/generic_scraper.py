@@ -47,7 +47,7 @@ class GenericScraper(BaseScraper):
         if not html:
             return []
 
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, "html.parser")
         base_url = self.club_config["base_url"]
         domain = urlparse(base_url).netloc
 
