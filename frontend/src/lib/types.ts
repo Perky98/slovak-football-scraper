@@ -13,6 +13,7 @@ export interface Article {
   sentiment: "positive" | "neutral" | "negative" | null;
   key_players: string[];
   tags: string[];
+  approved?: boolean;
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {

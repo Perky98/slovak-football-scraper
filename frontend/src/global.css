@@ -194,3 +194,158 @@ body {
   .header-inner { gap: 10px; }
   .site-header h1 { font-size: 1.2rem; }
 }
+
+/* ── ADMIN ── */
+.admin-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+}
+.admin-login-box {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 40px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.06);
+}
+.admin-login-box h2 { font-size: 1.25rem; font-weight: 700; color: #0f172a; }
+.admin-input {
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  width: 100%;
+}
+.admin-input.input-error { border-color: #ef4444; }
+.login-error { color: #ef4444; font-size: 0.82rem; }
+.btn-login {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-login:hover { background: #1d4ed8; }
+
+.admin-page { min-height: 100vh; background: #f8fafc; }
+.admin-topbar {
+  background: #1e293b;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 3px solid #3b82f6;
+}
+.admin-title { font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin: 0; }
+.admin-count { font-size: 0.82rem; color: #94a3b8; }
+.btn-logout {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.btn-logout:hover { border-color: #ef4444; color: #ef4444; }
+
+.admin-tabs {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 4px;
+  padding: 12px 24px 0;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  margin-bottom: -1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+.tab-badge {
+  background: #e2e8f0;
+  border-radius: 99px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.tab.active .tab-badge { background: #dbeafe; color: #2563eb; }
+
+.admin-body {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+.admin-table thead tr { background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+.admin-table th {
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.admin-table tbody tr { border-bottom: 1px solid #f1f5f9; }
+.admin-table tbody tr:last-child { border-bottom: none; }
+.admin-table tbody tr:hover { background: #f8fafc; }
+.admin-table td { padding: 11px 14px; vertical-align: middle; }
+.admin-table td.col-club { font-weight: 700; color: #2563eb; font-size: 0.78rem; white-space: nowrap; }
+.admin-table td.col-title a { color: #0f172a; text-decoration: none; font-weight: 500; line-height: 1.4; }
+.admin-table td.col-title a:hover { color: #2563eb; }
+.admin-table td.col-cat { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
+.admin-table td.col-date { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
+.admin-table td.col-actions { white-space: nowrap; }
+.admin-table tr.row-approved td.col-club { color: #10b981; }
+
+.btn-approve {
+  background: #10b981;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 6px;
+}
+.btn-approve:hover { background: #059669; }
+.btn-delete {
+  background: #fff;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-delete:hover { background: #fef2f2; border-color: #ef4444; }

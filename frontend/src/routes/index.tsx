@@ -3,7 +3,7 @@ import { type DocumentHead, server$ } from "@builder.io/qwik-city";
 import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
 import { db } from "~/lib/firebase";
 import type { Article } from "~/lib/types";
-import { CATEGORY_LABELS, LEAGUE_LABELS } from "~/lib/types";
+import { CATEGORY_LABELS } from "~/lib/types";
 import { ArticleCard } from "~/components/ArticleCard";
 
 const fetchArticles = server$(async () => {
@@ -15,7 +15,6 @@ const fetchArticles = server$(async () => {
 
 export default component$(() => {
   const allArticles = useSignal<Article[]>([]);
-  const league = useSignal("");
   const category = useSignal("");
   const loading = useSignal(true);
 
@@ -26,7 +25,6 @@ export default component$(() => {
   });
 
   const filtered = allArticles.value.filter((a) => {
-    if (league.value && a.league !== league.value) return false;
     if (category.value && a.category !== category.value) return false;
     return true;
   });
@@ -45,16 +43,6 @@ export default component$(() => {
 
       <div class="filters-bar">
         <div class="filters-inner">
-          <select
-            value={league.value}
-            onChange$={(e) => (league.value = (e.target as HTMLSelectElement).value)}
-          >
-            <option value="">Všetky ligy</option>
-            {Object.entries(LEAGUE_LABELS).map(([val, label]) => (
-              <option key={val} value={val}>{label}</option>
-            ))}
-          </select>
-
           <select
             value={category.value}
             onChange$={(e) => (category.value = (e.target as HTMLSelectElement).value)}
