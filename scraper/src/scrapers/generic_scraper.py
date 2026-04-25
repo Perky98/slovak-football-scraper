@@ -1,6 +1,6 @@
 from urllib.parse import urljoin, urlparse
-from typing import Optional
 import logging
+import re
 import feedparser
 from bs4 import BeautifulSoup
 from .base_scraper import BaseScraper
@@ -8,11 +8,19 @@ from .base_scraper import BaseScraper
 logger = logging.getLogger(__name__)
 
 ARTICLE_PATH_KEYWORDS = [
-    "/aktuality", "/novinky", "/spravy", "/news", "/clanok",
-    "/clanek", "/article", "/post", "/tlacove", "/press",
+    "/aktuality/", "/novinky/", "/clanok", "/clanek",
+    "/article/", "/post/", "/tlacove-spravy/",
 ]
 
 SKIP_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".mp4", ".zip"}
+
+# Patterns that indicate a navigation/pagination URL, not an article
+SKIP_URL_PATTERNS = re.compile(
+    r"(index\.php|index\.asp|\bpage=\d|\bpage/\d|/tag/|/category/|/kategoria/"
+    r"|/archiv/?$|/aktuality/?$|/novinky/?$|/spravy/?$|/news/?$|\?kde="
+    r"|press-zona|zona\.php|contact|kontakt|partneri|historia|stadion|soupiska|zapasy\.asp)",
+    re.IGNORECASE,
+)
 
 COMMON_RSS_PATHS = ["/feed", "/rss", "/feed.xml", "/rss.xml", "/atom.xml"]
 
@@ -22,20 +30,19 @@ class GenericScraper(BaseScraper):
     def get_article_links(self) -> list[str]:
         links = self._try_rss()
         if links:
-            logger.info(f"[{self.club_config['short_name']}] Found {len(links)} links via RSS")
+            logger.info(f"[{self.club_config['short_name']}] {len(links)} links via RSS")
             return links
 
         links = self._scrape_news_page()
-        logger.info(f"[{self.club_config['short_name']}] Found {len(links)} links via HTML scrape")
+        logger.info(f"[{self.club_config['short_name']}] {len(links)} links via HTML")
         return links
 
     # ------------------------------------------------------------------
     def _try_rss(self) -> list[str]:
         base = self.club_config["base_url"].rstrip("/")
         for path in COMMON_RSS_PATHS:
-            url = base + path
             try:
-                feed = feedparser.parse(url)
+                feed = feedparser.parse(base + path)
                 if feed.entries:
                     return [e.link for e in feed.entries[:25] if hasattr(e, "link")]
             except Exception:
@@ -51,7 +58,10 @@ class GenericScraper(BaseScraper):
         base_url = self.club_config["base_url"]
         domain = urlparse(base_url).netloc
 
-        found: set[str] = set()
+        # Use list + seen set to preserve page order (newest first)
+        seen: set[str] = set()
+        found: list[str] = []
+
         for a in soup.find_all("a", href=True):
             href = a["href"].strip()
             if not href or href.startswith("#") or href.startswith("mailto:"):
@@ -64,23 +74,42 @@ class GenericScraper(BaseScraper):
                 continue
             if any(abs_url.lower().endswith(ext) for ext in SKIP_EXTENSIONS):
                 continue
+            if SKIP_URL_PATTERNS.search(abs_url):
+                continue
+            if abs_url in seen:
+                continue
             if self._looks_like_article(abs_url):
-                found.add(abs_url)
+                seen.add(abs_url)
+                found.append(abs_url)
 
-        return list(found)[:30]
+        return self._sort_by_id(found)[:30]
+
+    @staticmethod
+    def _sort_by_id(links: list[str]) -> list[str]:
+        """Sort article links newest-first using the largest integer found in the URL path."""
+        def url_id(url: str) -> int:
+            nums = re.findall(r"\d+", urlparse(url).path)
+            return max((int(n) for n in nums if len(n) >= 4), default=0)
+
+        has_id = [u for u in links if url_id(u) > 0]
+        no_id  = [u for u in links if url_id(u) == 0]
+
+        # Only sort if most links have IDs (otherwise preserve page order)
+        if len(has_id) >= len(links) // 2:
+            return sorted(has_id, key=url_id, reverse=True) + no_id
+        return links
 
     @staticmethod
     def _looks_like_article(url: str) -> bool:
         lower = url.lower()
         if any(kw in lower for kw in ARTICLE_PATH_KEYWORDS):
             return True
-        # URL contains a year-like segment (2020–2029)
-        import re
+        # URL contains a year segment (e.g. /2025/ or /2024/)
         if re.search(r"/20[2-9]\d/", lower):
             return True
-        # URL ends with a long slug or numeric ID
+        # URL ends with a pure numeric ID (e.g. /news/12345)
         path = urlparse(url).path
         segments = [s for s in path.split("/") if s]
-        if segments and (len(segments[-1]) > 20 or segments[-1].isdigit()):
+        if segments and segments[-1].isdigit():
             return True
         return False
