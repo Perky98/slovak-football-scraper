@@ -1,12 +1,14 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { adminApproveArticle, adminDeleteArticle } from "~/lib/admin-db";
+import { adminApproveArticle, adminDeleteArticle, adminUpdateArticle } from "~/lib/admin-db";
 
 export const onPost: RequestHandler = async ({ json, request }) => {
   try {
     const body = await request.json() as {
-      action: "approve" | "delete";
+      action: "approve" | "delete" | "update";
       articleId: string;
       password: string;
+      summary?: string;
+      category?: string;
     };
 
     const { action, articleId, password } = body ?? {};
@@ -24,6 +26,11 @@ export const onPost: RequestHandler = async ({ json, request }) => {
       await adminApproveArticle(articleId);
     } else if (action === "delete") {
       await adminDeleteArticle(articleId);
+    } else if (action === "update") {
+      await adminUpdateArticle(articleId, {
+        summary: body.summary,
+        category: body.category,
+      });
     } else {
       json(400, { error: "Neznáma akcia" });
       return;

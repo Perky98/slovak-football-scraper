@@ -25,6 +25,12 @@ export default component$(() => {
   const tab = useSignal<"pending" | "all">("pending");
   const expandedId = useSignal<string | null>(null);
 
+  // Edit state pre rozbalený riadok
+  const editSummary = useSignal("");
+  const editCategory = useSignal("");
+  const saving = useSignal(false);
+  const saveSuccess = useSignal(false);
+
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -42,6 +48,18 @@ export default component$(() => {
       articles.value = data;
       loading.value = false;
     });
+  });
+
+  // Predvyplň edit polia pri rozbalení článku
+  useTask$(({ track }) => {
+    const id = track(() => expandedId.value);
+    saveSuccess.value = false;
+    if (!id) return;
+    const a = articles.value.find((x) => x.id === id);
+    if (a) {
+      editSummary.value = a.summary ?? "";
+      editCategory.value = a.category ?? "";
+    }
   });
 
   const pendingCount = articles.value.filter((a) => !a.approved).length;
@@ -162,9 +180,7 @@ export default component$(() => {
                     <tr
                       key={a.id}
                       class={`article-row${a.approved ? " row-approved" : ""}${isExpanded ? " row-expanded" : ""}`}
-                      onClick$={() => {
-                        expandedId.value = isExpanded ? null : a.id;
-                      }}
+                      onClick$={() => { expandedId.value = isExpanded ? null : a.id; }}
                     >
                       <td class="col-club">{a.club_name}</td>
                       <td class="col-title">
@@ -182,9 +198,7 @@ export default component$(() => {
                         )}
                       </td>
                       <td class="col-date">
-                        {a.published_at
-                          ? new Date(a.published_at).toLocaleDateString("sk-SK")
-                          : "—"}
+                        {a.published_at ? new Date(a.published_at).toLocaleDateString("sk-SK") : "—"}
                       </td>
                       <td class="col-actions" onClick$={(e) => e.stopPropagation()}>
                         {!a.approved && (
@@ -203,9 +217,7 @@ export default component$(() => {
                                 articles.value = articles.value.map((x) =>
                                   x.id === a.id ? { ...x, approved: true } : x
                                 );
-                              } catch (e: any) {
-                                errorMsg.value = e?.message ?? "Chyba";
-                              }
+                              } catch (e: any) { errorMsg.value = e?.message ?? "Chyba"; }
                             }}
                           >
                             Schváliť
@@ -226,22 +238,12 @@ export default component$(() => {
                               if (!res.ok) throw new Error(data.error);
                               articles.value = articles.value.filter((x) => x.id !== a.id);
                               if (expandedId.value === a.id) expandedId.value = null;
-                            } catch (e: any) {
-                              errorMsg.value = e?.message ?? "Chyba";
-                            }
+                            } catch (e: any) { errorMsg.value = e?.message ?? "Chyba"; }
                           }}
                         >
                           Odstrániť
                         </button>
-                        <a
-                          href={a.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="btn-link"
-                          title="Otvoriť článok"
-                        >
-                          ↗
-                        </a>
+                        <a href={a.url} target="_blank" rel="noopener noreferrer" class="btn-link" title="Otvoriť článok">↗</a>
                       </td>
                     </tr>
 
@@ -249,15 +251,86 @@ export default component$(() => {
                       <tr key={`${a.id}-detail`} class="detail-row">
                         <td colSpan={5}>
                           <div class="detail-body">
-                            {a.summary && (
-                              <div class="detail-section">
-                                <span class="detail-label">AI súhrn</span>
-                                <p class="detail-text">{a.summary}</p>
-                              </div>
-                            )}
+
+                            {/* ── Editable: Kategória ── */}
+                            <div class="detail-section">
+                              <span class="detail-label">Kategória</span>
+                              <select
+                                class="edit-select"
+                                value={editCategory.value}
+                                onChange$={(e) => {
+                                  editCategory.value = (e.target as HTMLSelectElement).value;
+                                  saveSuccess.value = false;
+                                }}
+                              >
+                                <option value="">— neurčená —</option>
+                                {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
+                                  <option key={val} value={val}>{label}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* ── Editable: AI súhrn ── */}
+                            <div class="detail-section">
+                              <span class="detail-label">AI súhrn</span>
+                              <textarea
+                                class="edit-textarea"
+                                value={editSummary.value}
+                                rows={4}
+                                onInput$={(e) => {
+                                  editSummary.value = (e.target as HTMLTextAreaElement).value;
+                                  saveSuccess.value = false;
+                                }}
+                              />
+                            </div>
+
+                            {/* ── Save button ── */}
+                            <div class="detail-save-row">
+                              <button
+                                class="btn-save"
+                                disabled={saving.value}
+                                onClick$={async () => {
+                                  saving.value = true;
+                                  errorMsg.value = "";
+                                  saveSuccess.value = false;
+                                  try {
+                                    const res = await fetch("/api/admin", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        action: "update",
+                                        articleId: a.id,
+                                        password: storedPass.value,
+                                        summary: editSummary.value,
+                                        category: editCategory.value || null,
+                                      }),
+                                    });
+                                    const data = await res.json();
+                                    if (!res.ok) throw new Error(data.error);
+                                    articles.value = articles.value.map((x) =>
+                                      x.id === a.id
+                                        ? { ...x, summary: editSummary.value, category: editCategory.value || null }
+                                        : x
+                                    );
+                                    saveSuccess.value = true;
+                                  } catch (e: any) {
+                                    errorMsg.value = e?.message ?? "Chyba pri ukladaní";
+                                  } finally {
+                                    saving.value = false;
+                                  }
+                                }}
+                              >
+                                {saving.value ? "Ukladám..." : "Uložiť zmeny"}
+                              </button>
+                              {saveSuccess.value && (
+                                <span class="save-ok">✓ Uložené</span>
+                              )}
+                            </div>
+
+                            {/* ── Read-only: Hráči, Tagy, Text ── */}
                             {a.key_players.length > 0 && (
                               <div class="detail-section">
-                                <span class="detail-label">Hráči</span>
+                                <span class="detail-label">Kľúčoví hráči</span>
                                 <p class="detail-text">{a.key_players.join(", ")}</p>
                               </div>
                             )}
@@ -269,10 +342,11 @@ export default component$(() => {
                             )}
                             {a.content && (
                               <div class="detail-section">
-                                <span class="detail-label">Text článku</span>
+                                <span class="detail-label">Originálny text</span>
                                 <p class="detail-text detail-content">{a.content}</p>
                               </div>
                             )}
+
                           </div>
                         </td>
                       </tr>

@@ -55,6 +55,38 @@ export async function adminDeleteArticle(articleId: string) {
   if (!res.ok) throw new Error(`DELETE failed: ${res.status} ${await res.text()}`);
 }
 
+export async function adminUpdateArticle(
+  articleId: string,
+  fields: { summary?: string; category?: string }
+) {
+  const sa = loadServiceAccount();
+  const token = await getAccessToken();
+
+  const firestoreFields: Record<string, unknown> = {};
+  const mask: string[] = [];
+
+  if (fields.summary !== undefined) {
+    firestoreFields.summary = { stringValue: fields.summary };
+    mask.push("summary");
+  }
+  if (fields.category !== undefined) {
+    firestoreFields.category = { stringValue: fields.category };
+    mask.push("category");
+  }
+  if (mask.length === 0) return;
+
+  const maskQuery = mask.map((f) => `updateMask.fieldPaths=${f}`).join("&");
+  const res = await fetch(
+    `${FIRESTORE_BASE(sa.project_id)}/${articleId}?${maskQuery}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: firestoreFields }),
+    }
+  );
+  if (!res.ok) throw new Error(`PATCH failed: ${res.status} ${await res.text()}`);
+}
+
 export async function adminApproveArticle(articleId: string) {
   const sa = loadServiceAccount();
   const token = await getAccessToken();

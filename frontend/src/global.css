@@ -388,6 +388,49 @@ body {
   cursor: pointer;
 }
 .btn-delete:hover { background: #fef2f2; border-color: #ef4444; }
+.edit-select {
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  background: #fff;
+  color: #0f172a;
+  min-width: 200px;
+}
+.edit-select:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+
+.edit-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  color: #0f172a;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: inherit;
+}
+.edit-textarea:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+
+.detail-save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.btn-save {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-save:hover { background: #1d4ed8; }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.save-ok { color: #10b981; font-size: 0.875rem; font-weight: 600; }
+
 .admin-error-banner {
   background: #fef2f2;
   color: #b91c1c;
