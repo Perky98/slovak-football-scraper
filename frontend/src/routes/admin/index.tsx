@@ -1,21 +1,11 @@
-import { component$, useSignal, useTask$ } from "@builder.io/qwik";
+import { component$, useSignal, useTask$, useVisibleTask$ } from "@builder.io/qwik";
 import { type DocumentHead, server$ } from "@builder.io/qwik-city";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "~/lib/firebase";
 import type { Article } from "~/lib/types";
 import { CATEGORY_LABELS } from "~/lib/types";
 
-// ── server-side Firebase Admin operations (bypass Firestore security rules) ──
-
-const doApprove = server$(async (articleId: string) => {
-  const { getAdminDb } = await import("~/lib/admin-db");
-  await getAdminDb().collection("articles").doc(articleId).update({ approved: true });
-});
-
-const doDelete = server$(async (articleId: string) => {
-  const { getAdminDb } = await import("~/lib/admin-db");
-  await getAdminDb().collection("articles").doc(articleId).delete();
-});
+const STORAGE_KEY = "sfa_admin_pass";
 
 const fetchAllArticles = server$(async () => {
   const snap = await getDocs(
@@ -24,16 +14,24 @@ const fetchAllArticles = server$(async () => {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Article[];
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default component$(() => {
   const passwordInput = useSignal("");
+  const storedPass = useSignal("");   // heslo uložené v pamäti + localStorage
   const authed = useSignal(false);
   const wrongPass = useSignal(false);
   const articles = useSignal<Article[]>([]);
   const loading = useSignal(false);
   const errorMsg = useSignal("");
   const tab = useSignal<"pending" | "all">("pending");
+
+  // Obnov prihlásenie z localStorage pri načítaní stránky
+  useVisibleTask$(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      storedPass.value = saved;
+      authed.value = true;
+    }
+  });
 
   useTask$(({ track }) => {
     track(() => authed.value);
@@ -66,6 +64,8 @@ export default component$(() => {
             onKeyDown$={(e) => {
               if ((e as KeyboardEvent).key === "Enter") {
                 if (passwordInput.value === import.meta.env.VITE_ADMIN_PASSWORD) {
+                  storedPass.value = passwordInput.value;
+                  localStorage.setItem(STORAGE_KEY, passwordInput.value);
                   authed.value = true;
                 } else {
                   wrongPass.value = true;
@@ -78,6 +78,8 @@ export default component$(() => {
             class="btn-login"
             onClick$={() => {
               if (passwordInput.value === import.meta.env.VITE_ADMIN_PASSWORD) {
+                storedPass.value = passwordInput.value;
+                localStorage.setItem(STORAGE_KEY, passwordInput.value);
                 authed.value = true;
               } else {
                 wrongPass.value = true;
@@ -100,6 +102,8 @@ export default component$(() => {
         <button
           class="btn-logout"
           onClick$={() => {
+            localStorage.removeItem(STORAGE_KEY);
+            storedPass.value = "";
             authed.value = false;
             articles.value = [];
             passwordInput.value = "";
@@ -110,7 +114,12 @@ export default component$(() => {
       </div>
 
       {errorMsg.value && (
-        <div class="admin-error-banner">{errorMsg.value}</div>
+        <div
+          class="admin-error-banner"
+          onClick$={() => (errorMsg.value = "")}
+        >
+          {errorMsg.value} — klikni pre zatvorenie
+        </div>
       )}
 
       <div class="admin-tabs">
@@ -170,12 +179,22 @@ export default component$(() => {
                         onClick$={async () => {
                           errorMsg.value = "";
                           try {
-                            await doApprove(a.id);
+                            const res = await fetch("/api/admin", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                action: "approve",
+                                articleId: a.id,
+                                password: storedPass.value,
+                              }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error);
                             articles.value = articles.value.map((x) =>
                               x.id === a.id ? { ...x, approved: true } : x
                             );
                           } catch (e: any) {
-                            errorMsg.value = `Chyba: ${e?.message ?? e}`;
+                            errorMsg.value = e?.message ?? "Chyba";
                           }
                         }}
                       >
@@ -188,10 +207,20 @@ export default component$(() => {
                         if (!confirm(`Naozaj zmazať: "${a.title}"?`)) return;
                         errorMsg.value = "";
                         try {
-                          await doDelete(a.id);
+                          const res = await fetch("/api/admin", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "delete",
+                              articleId: a.id,
+                              password: storedPass.value,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error);
                           articles.value = articles.value.filter((x) => x.id !== a.id);
                         } catch (e: any) {
-                          errorMsg.value = `Chyba: ${e?.message ?? e}`;
+                          errorMsg.value = e?.message ?? "Chyba";
                         }
                       }}
                     >
