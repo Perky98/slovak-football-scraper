@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { getAdminDb } from "~/lib/admin-db";
+import { adminApproveArticle, adminDeleteArticle } from "~/lib/admin-db";
 
 export const onPost: RequestHandler = async ({ json, request }) => {
   try {
@@ -9,24 +9,21 @@ export const onPost: RequestHandler = async ({ json, request }) => {
       password: string;
     };
 
-    const { action, articleId, password } = body;
+    const { action, articleId, password } = body ?? {};
 
-    if (password !== import.meta.env.VITE_ADMIN_PASSWORD) {
+    if (!password || password !== import.meta.env.VITE_ADMIN_PASSWORD) {
       json(401, { error: "Nesprávne heslo" });
       return;
     }
-
     if (!articleId) {
       json(400, { error: "Chýba articleId" });
       return;
     }
 
-    const db = getAdminDb();
-
     if (action === "approve") {
-      await db.collection("articles").doc(articleId).update({ approved: true });
+      await adminApproveArticle(articleId);
     } else if (action === "delete") {
-      await db.collection("articles").doc(articleId).delete();
+      await adminDeleteArticle(articleId);
     } else {
       json(400, { error: "Neznáma akcia" });
       return;

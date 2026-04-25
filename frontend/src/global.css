@@ -319,12 +319,51 @@ body {
 .admin-table tbody tr:hover { background: #f8fafc; }
 .admin-table td { padding: 11px 14px; vertical-align: middle; }
 .admin-table td.col-club { font-weight: 700; color: #2563eb; font-size: 0.78rem; white-space: nowrap; }
-.admin-table td.col-title a { color: #0f172a; text-decoration: none; font-weight: 500; line-height: 1.4; }
-.admin-table td.col-title a:hover { color: #2563eb; }
-.admin-table td.col-cat { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
+.admin-table td.col-title { cursor: pointer; color: #0f172a; font-weight: 500; line-height: 1.4; }
+.admin-table td.col-cat { font-size: 0.78rem; white-space: nowrap; }
 .admin-table td.col-date { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
-.admin-table td.col-actions { white-space: nowrap; }
+.admin-table td.col-actions { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 .admin-table tr.row-approved td.col-club { color: #10b981; }
+.admin-table tr.article-row { cursor: pointer; }
+.admin-table tr.article-row:hover { background: #f0f9ff; }
+.admin-table tr.row-expanded td { background: #f0f9ff; }
+.row-toggle { font-size: 0.75rem; color: #94a3b8; margin-right: 6px; }
+
+.detail-row td { padding: 0 !important; border-bottom: 2px solid #e2e8f0 !important; }
+.detail-body {
+  padding: 16px 20px 20px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.detail-section { display: flex; flex-direction: column; gap: 4px; }
+.detail-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.detail-text { font-size: 0.875rem; color: #334155; line-height: 1.6; }
+.detail-content { max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+
+.admin-cat-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid;
+}
+.btn-link {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 1rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.btn-link:hover { color: #2563eb; background: #eff6ff; }
 
 .btn-approve {
   background: #10b981;
