@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 ARTICLE_PATH_KEYWORDS = [
     "/aktuality/", "/novinky/", "/clanok", "/clanek",
-    "/article/", "/post/", "/tlacove-spravy/", "/aktualita-",
+    "/article/", "/post/", "/tlacove-spravy/", "/aktualita-", "-a19-",
 ]
 
 SKIP_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".mp4", ".zip"}
