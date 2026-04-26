@@ -1,10 +1,12 @@
-import { component$, useSignal, useTask$ } from "@builder.io/qwik";
+import { component$, useSignal, useTask$, useVisibleTask$ } from "@builder.io/qwik";
 import { type DocumentHead, server$ } from "@builder.io/qwik-city";
 import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
 import { db } from "~/lib/firebase";
 import type { Article } from "~/lib/types";
 import { CATEGORY_LABELS } from "~/lib/types";
 import { ArticleCard } from "~/components/ArticleCard";
+
+const DARK_KEY = "sfa_dark_mode";
 
 const fetchArticles = server$(async () => {
   const snap = await getDocs(
@@ -16,7 +18,17 @@ const fetchArticles = server$(async () => {
 export default component$(() => {
   const allArticles = useSignal<Article[]>([]);
   const category = useSignal("");
+  const club = useSignal("");
   const loading = useSignal(true);
+  const darkMode = useSignal(false);
+
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(() => {
+    if (localStorage.getItem(DARK_KEY) === "1") {
+      darkMode.value = true;
+      document.documentElement.classList.add("dark");
+    }
+  });
 
   useTask$(async () => {
     loading.value = true;
@@ -24,9 +36,13 @@ export default component$(() => {
     loading.value = false;
   });
 
+  const clubs = [...new Set(allArticles.value.map((a) => a.club_name))].sort();
+
   const filtered = allArticles.value
     .filter((a) => {
+      if (!a.approved) return false;
       if (category.value && a.category !== category.value) return false;
+      if (club.value && a.club_name !== club.value) return false;
       return true;
     })
     .sort((a, b) => {
@@ -44,6 +60,22 @@ export default component$(() => {
             <h1>Slovak Football AI</h1>
             <p>Správy slovenských futbalových klubov — analyzované umelou inteligenciou</p>
           </div>
+          <button
+            class="dark-toggle"
+            title={darkMode.value ? "Svetlý režim" : "Tmavý režim"}
+            onClick$={() => {
+              darkMode.value = !darkMode.value;
+              if (darkMode.value) {
+                document.documentElement.classList.add("dark");
+                localStorage.setItem(DARK_KEY, "1");
+              } else {
+                document.documentElement.classList.remove("dark");
+                localStorage.setItem(DARK_KEY, "0");
+              }
+            }}
+          >
+            {darkMode.value ? "☀" : "🌙"}
+          </button>
         </div>
       </header>
 
@@ -56,6 +88,16 @@ export default component$(() => {
             <option value="">Všetky kategórie</option>
             {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+
+          <select
+            value={club.value}
+            onChange$={(e) => (club.value = (e.target as HTMLSelectElement).value)}
+          >
+            <option value="">Všetky kluby</option>
+            {clubs.map((c) => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
