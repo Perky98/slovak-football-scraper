@@ -17,7 +17,7 @@ from config.clubs import ALL_CLUBS
 from src.models.article import Article
 from src.scrapers.generic_scraper import GenericScraper
 from src.utils.deepseek_client import analyze_article
-from src.utils.firebase_client import get_db, article_exists, save_article
+from src.utils.firebase_client import get_db, article_exists, save_article, get_fcm_tokens, send_push_notification
 
 
 def process_club(db, club: dict) -> int:
@@ -89,6 +89,13 @@ def run_once():
             logger.error(f"Club failed ({club['name']}): {e}")
         time.sleep(2)
     logger.info(f"Done. {total} new articles saved.")
+    if total > 0:
+        tokens = get_fcm_tokens(db)
+        send_push_notification(
+            "Slovak Football AI",
+            f"{total} {'nový článok' if total == 1 else 'nové články' if total < 5 else 'nových článkov'} čaká na schválenie",
+            tokens,
+        )
 
 
 def run_scheduled():

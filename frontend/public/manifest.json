@@ -1,9 +1,21 @@
 {
   "$schema": "https://json.schemastore.org/web-manifest-combined.json",
-  "name": "qwik-project-name",
-  "short_name": "Welcome to Qwik",
-  "start_url": ".",
+  "name": "Slovak Football AI",
+  "short_name": "SFA",
+  "description": "Správy slovenských futbalových klubov analyzované umelou inteligenciou",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#fff",
-  "description": "A Qwik project app."
+  "background_color": "#0d1a0e",
+  "theme_color": "#22c55e",
+  "lang": "sk",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["sports", "news"]
 }

@@ -37,18 +37,22 @@
 └────────────┬─────────────┘
              │ JSON výsledok
              ▼
-┌──────────────────────────┐
-│  Firebase Firestore      │  kolekcia "articles", doc ID = MD5(url)
+┌──────────────────────────┐       FCM push
+│  Firebase Firestore      │  ────────────────► Prehliadač používateľa
+│  kolekcia "articles"     │       notifikácia   (firebase-messaging-sw.js)
+│  kolekcia "fcm_tokens"   │
 └────────────┬─────────────┘
              │ Firebase JS SDK (read + write)
-             ├─────────────────────────────────────────────┐
-             ▼                                             ▼
-┌──────────────────────────┐             ┌──────────────────────────┐
-│  Qwik Frontend           │             │  Admin panel             │
-│  (verejný dashboard)     │             │  /admin — schvaľovanie,  │
-│  filter podľa kategórie  │             │  mazanie, úprava článkov │
-│  a klubu, tmavý režim    │             │  vyhľadávanie, stránkov. │
-└──────────────────────────┘             └──────────────────────────┘
+             ├──────────────────────────────────────────────────┐
+             ▼                                                  ▼
+┌─────────────────────────────────────┐        ┌───────────────────────────┐
+│  Qwik Frontend (verejný)            │        │  Admin panel (/admin/)    │
+│  /          — grid, filtre, search  │        │  schvaľovanie, mazanie,   │
+│  /[slug]/   — detail článku + AI    │        │  inline editácia, search, │
+│  /stats/    — štatistiky a grafy    │        │  stránkovanie             │
+│  PWA: sw.js, manifest.json,         │        └───────────────────────────┘
+│        offline cache (localStorage) │
+└─────────────────────────────────────┘
 ```
 
 ---
@@ -61,11 +65,15 @@
 | Extrakcia textu | trafilatura | Čistá extrakcia textu + dátumu článku z HTML |
 | RSS | feedparser | Fallback na RSS feed (Spartak, Michalovce, Komárno) |
 | AI analýza | DeepSeek API (deepseek-chat) | Súhrn, kategória, sentiment, hráči, tagy |
-| Databáza | Firebase Firestore | Cloudové ukladanie článkov |
+| Databáza | Firebase Firestore | Cloudové ukladanie článkov a FCM tokenov |
+| Push notifikácie | Firebase Admin SDK (messaging) | FCM notifikácie adminovi po každom scrape behu |
 | Plánovanie | APScheduler | Automatické spúšťanie každých N hodín |
 | Prostredie | python-dotenv | Správa API kľúčov cez .env súbor |
-| Frontend | Qwik + TypeScript | Webový dashboard a admin panel |
+| Frontend | Qwik + TypeScript | Webový dashboard, detail stránky, štatistiky, admin panel |
+| Routing | Qwik City (file-system router) | SSR routing vrátane dynamickej trasy `[slug]` |
 | Auth (admin) | Firebase JS SDK (client-side) | Priame Firestore operácie v admin paneli |
+| PWA | Service Worker + Web App Manifest | Offline režim, inštalácia na mobil, push notifikácie |
+| Slugify | vlastná funkcia (`lib/utils.ts`) | NFD normalizácia slovenských diakritík pre URL |
 | Nasadenie | Raspberry Pi | Scraper beží nepretržite |
 | Verzovanie | Git + GitHub | História zmien, repozitár |
 
@@ -86,24 +94,35 @@ slovak-football-scraper/
 │   │   │   └── generic_scraper.py # RSS → sitemap → HTML fallback reťazec
 │   │   └── utils/
 │   │       ├── deepseek_client.py # DeepSeek AI analýza
-│   │       └── firebase_client.py # Firestore operácie + deduplikácia
+│   │       └── firebase_client.py # Firestore CRUD + deduplikácia + FCM notifikácie
 │   ├── main.py                   # orchestrátor (jednorazový / plánovaný beh)
 │   ├── test_scraper.py           # test scrapingu bez AI/Firebase
 │   ├── test_analysis.py          # test kompletnej analýzy
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
+│   ├── public/
+│   │   ├── favicon.svg
+│   │   ├── manifest.json         # PWA manifest (názov, farby, ikony)
+│   │   ├── sw.js                 # Service Worker — offline cache
+│   │   └── firebase-messaging-sw.js # Service Worker — FCM push notifikácie
 │   ├── src/
 │   │   ├── components/
-│   │   │   └── ArticleCard.tsx   # karta článku (klub, súhrn, kategória, hráči)
+│   │   │   ├── ArticleCard.tsx   # karta článku s overlay odkazom na detail
+│   │   │   └── SkeletonCard.tsx  # animovaný placeholder pre skeleton loading
 │   │   ├── lib/
 │   │   │   ├── firebase.ts       # inicializácia Firebase JS klienta
-│   │   │   └── types.ts          # TypeScript typy + prekladové mapy
+│   │   │   ├── types.ts          # TypeScript typy + prekladové mapy
+│   │   │   └── utils.ts          # pomocné funkcie (slugify, relativeTime)
 │   │   └── routes/
-│   │       ├── index.tsx         # hlavná stránka s filtrom a gridom
+│   │       ├── index.tsx         # hlavná stránka — grid + filtre + vyhľadávanie
+│   │       ├── [slug]/
+│   │       │   └── index.tsx     # detail článku — /nadpis-clanku/
+│   │       ├── stats/
+│   │       │   └── index.tsx     # štatistiky — /stats/
 │   │       └── admin/
-│   │           └── index.tsx     # admin panel
-│   ├── src/global.css            # globálne štýly
+│   │           └── index.tsx     # admin panel — /admin/
+│   ├── src/global.css            # globálne štýly (dark mode, karty, modal, štatistiky)
 │   └── .env.example
 ├── docs/
 │   ├── DOKUMENTACIA.md           # tento súbor
@@ -156,22 +175,83 @@ Každý článok je uložený ako dokument vo Firestore kolekcii `articles`. Doc
 
 Dostupný na hlavnej URL aplikácie.
 
-### Funkcie
+### Stránky
+
+| URL | Súbor | Popis |
+|-----|-------|-------|
+| `/` | `routes/index.tsx` | Hlavná stránka — grid článkov s filtrami |
+| `/[slug]/` | `routes/[slug]/index.tsx` | Detail článku — napr. `/slovan-prestupil-hraca/` |
+| `/stats/` | `routes/stats/index.tsx` | Štatistiky a grafy |
+| `/admin/` | `routes/admin/index.tsx` | Admin panel (chránený heslom) |
+
+### Funkcie hlavnej stránky
+- **Fulltextové vyhľadávanie** — vyhľadáva súčasne v nadpise, AI súhrne, mene klubu, kľúčových hráčoch aj tagoch; real-time filtrovanie bez server requestu
 - **Filter kategórie** — dropdown pre filtrovanie podľa AI kategórie (prestup, zápas atď.)
 - **Filter klubu** — dropdown "Všetky kluby / Slovan / DAC / ..." — dynamicky generovaný z načítaných článkov
 - **Zoradenie** — články zoradené podľa `published_at` zostupne (články z rôznych klubov sa prirodzene prelínajú podľa dátumu)
 - **Len schválené články** — zobrazujú sa iba články s `approved: true`; neschválené sú viditeľné len v admin paneli
 - **Tmavý režim** — prepínač 🌙/☀ v hlavičke; predvoľba sa ukladá do `localStorage`
 - **Responzívny dizajn** — grid sa prispôsobuje od 3 stĺpcov na desktop až po 1 stĺpec na mobile
+- **Offline režim** — po prvom načítaní sa články uložia do `localStorage`; pri výpadku siete sa zobrazí cached verzia s informačným bannerom
+- **Push notifikácie** — tlačidlo 🔕/🔔 v hlavičke; po kliknutí prehliadač požiada o povolenie; po schválení zobrazí potvrdzovaciu notifikáciu
+- **Skeleton loading** — počas načítavania článkov sa zobrazí mriežka 6 animovaných placeholder kariet (shimmer efekt) namiesto statického textu "Načítavam..."; skeletony kopírujú rozloženie reálnej karty (klub, dátum, nadpis, preview, badge)
 
 ### Karta článku (`ArticleCard`)
+- Celá karta je klikateľná (overlay `<a>` odkaz na `z-index: 2`) — otvorí detail stránku na URL `/nadpis-clanku/`
+- Tlačidlo ↗ (pravý horný roh) otvára originálny zdroj v novom tabe — má `z-index: 3`, teda je nad overlayom a funguje nezávisle
 - Názov klubu (zelený) + liga
-- Dátum publikovania (zo stránky klubu, fallback na dátum stiahnutia)
-- Odkaz na originálny článok (↗)
+- **Relatívny čas** — dátum sa zobrazuje ako "pred 2 hod", "včera", "pred 3 dňami", "pred 2 mes." atď.; pri hover zobrazí tooltip s plným dátumom; pre staré články (>1 rok) sa zobrazí plný dátum v slovenčine
 - Nadpis článku
 - AI súhrn skrátený na 300 znakov (fallback na obsah ak súhrn chýba)
 - Farebný badge kategórie
 - Prví 3 kľúčoví hráči
+
+### Detail článku (`/[slug]/`)
+
+URL sa generuje automaticky zo slovenského nadpisu — diakritika sa odstráni, medzery nahradí `-`:
+
+```
+"Slovan prestúpil Štefana Žigárda"  →  /slovan-prestupil-stefana-zigarda/
+```
+
+Implementácia v `lib/utils.ts` funkciou `slugify()` (NFD normalizácia + regex).
+
+Stránka zobrazuje:
+- Farebný badge **kategórie** + badge **sentimentu** (😊 pozitívny / 😐 neutrálny / 😟 negatívny) s farbou
+- **AI zhrnutie** — plný text (nie skrátený)
+- **Všetci kľúčoví hráči** — interaktívne chipy (zelené)
+- **Všetky tagy** — chipy s `#` prefixom (sivé)
+- **Tlačidlo** na originálny článok
+- **Tlačidlo "Zdieľať"** — na mobile otvorí natívny OS share sheet (Web Share API); na desktop skopíruje URL do schránky (Clipboard API) ako fallback
+- **Súvisiace články** — max 3, filtrované podľa rovnakého klubu alebo kategórie
+- `<title>` stránky = nadpis článku (SEO-friendly)
+
+Data sa načítava cez `routeLoader$` — beží na serveri pri SSR, výsledok je serializovaný do HTML pred odoslaním do prehliadača.
+
+### Štatistiky (`/stats/`)
+
+Agreguje všetky schválené články a zobrazuje:
+- **Súhrnné čísla** — celkový počet článkov, počet klubov, počet spomínaných hráčov
+- **Sentiment** — tri farebné boxy s absolútnym počtom aj percentom (pozitívny / neutrálny / negatívny)
+- **Graf: Články podľa klubu** — horizontálne CSS bary, zoradené zostupne
+- **Graf: Rozdelenie podľa kategórie** — horizontálne CSS bary s farbou každej kategórie
+- **Rebríček hráčov** — top 15 najčastejšie spomínaných hráčov s mini progress barom
+
+Grafy sú implementované čisto v CSS (bez knižnice) — `<div>` s `width: X%` vypočítaným z pomeru k maximálnej hodnote.
+
+### PWA (Progressive Web App)
+
+Aplikácia spĺňa kritériá pre inštaláciu ako natívna aplikácia na mobilnom zariadení:
+
+- **`public/manifest.json`** — názov `Slovak Football AI`, krátky názov `SFA`, `theme_color: #22c55e`, `display: standalone`
+- **`public/sw.js`** — Service Worker pre offline funkcionalitu:
+  - *Install*: cachuje statické assety (favicon, manifest)
+  - *Activate*: vymaže staré cache verzie (cache versioning cez `sfa-v2`)
+  - *Fetch*: pre navigačné requesty (HTML stránky) — network-first, fallback na cache; pre statické assety — cache-first
+  - Vite HMR requesty (`/@`, `hot-update`) sú vylúčené z interceptovania
+- **`public/firebase-messaging-sw.js`** — Service Worker pre FCM push notifikácie:
+  - Prijíma `push` udalosti a zobrazuje systémové notifikácie
+  - Pri kliknutí na notifikáciu otvorí aplikáciu alebo prenesie focus na existujúci tab
 
 ### Farebná paleta
 - Header: `#0d1a0e` (tmavá lesná zelená) s `#22c55e` accent borderom
@@ -384,6 +464,57 @@ Všetky `news_url` boli pôvodne odhadnuté — pri testovaní zlyhalo 7 z 12:
 - **Tmavý režim** — prepínač s ukladaním do `localStorage`; CSS overrides cez `html.dark` triedu
 - **Mobilná responzivita admin panelu** — horizontálny scroll tabuľky, skladanie toolbaru, skrývanie stĺpca dátumu na úzkych obrazovkách
 - **Nová farebná paleta** — zelená namiesto generickej modrej; tmavý header evokuje nočné futbalové ihrisko
+
+### Fáza 7 — PWA, štatistiky, vyhľadávanie, detail článku
+
+#### Detail článku na vlastnej URL
+Kliknutie na kartu článku otvorí dedikovanú stránku `/nadpis-clanku/` namiesto modalu. Slug sa generuje automaticky z nadpisu funkciou `slugify()` (NFD normalizácia pre slovenské diakritiky — š→s, č→c, ž→z, ľ→l atď.). Data sa načítava cez Qwik `routeLoader$` — server-side pri SSR, čo umožňuje správne SEO meta tagy (`<title>` = nadpis článku). Karta zostáva klikateľná cez neviditeľný CSS overlay `<a>` link (technika "card overlay") — tlačidlo ↗ na originál je nad overlayom (CSS `z-index`) a funguje nezávisle.
+
+#### Štatistický dashboard (`/stats/`)
+Nová stránka s prehľadom agregovaných dát. Kľúčové rozhodnutie: grafy sú implementované čistým CSS bez externej knižnice (recharts/chart.js by vyžadoval React závislosti, ktoré sú nekompatibilné s Qwikom). Výška/šírka barov sa vypočíta ako `(hodnota / maximum) * 100 %`.
+
+#### Fulltextové vyhľadávanie
+Search input v lište filtrov kombinuje filtrovanie naprieč piatimi poľami naraz (title, summary, club\_name, key\_players, tags) — všetky sú spojené do jedného reťazca a porovnané s `toLowerCase().includes(query)`. Nepotrebuje server — funguje nad dátami načítanými do pamäte.
+
+#### PWA a offline režim
+Service worker (`sw.js`) bol vyladený v dvoch iteráciách — prvá verzia kešovala redirect URL `/stats` (bez lomky, 301) čo spôsobilo redirect loop a Chrome zobrazil `ERR_FAILED`. Druhá verzia:
+- cachuje len statické assety bez HTML stránok pri inštalácii (žiadne redirecty)
+- navigačné requesty (HTML) sú network-first: cache sa uloží až po úspešnom fetchnutí z neta
+- Vite HMR requesty sú explicitne vylúčené z interceptovania
+
+Offline záloha článkov funguje cez `localStorage` — pri každom úspešnom načítaní sa JSON uloží; pri výpadku siete sa použije cached verzia.
+
+#### FCM push notifikácie (scraper)
+`firebase_client.py` rozšírený o dve funkcie:
+- `get_fcm_tokens(db)` — načíta tokeny z kolekcie `fcm_tokens`
+- `send_push_notification(title, body, tokens)` — odosiela FCM multicast správu cez `firebase_admin.messaging`
+
+Po každom behu scrapera sa odošle notifikácia adminom ("N nových článkov čaká na schválenie") ak boli nájdené nové články. Frontend zaregistruje token po kliknutí na tlačidlo 🔔 a uloží ho do Firestore.
+
+### Fáza 8 — Relatívny čas a skeleton loading
+
+#### Relatívny čas
+Funkcia `relativeTime()` pridaná do `lib/utils.ts`. Nahrádza statický formátovaný dátum v kartách dynamickým popisom relatívneho veku článku:
+
+| Hranica | Výstup |
+|---------|--------|
+| < 1 min | "práve teraz" |
+| < 60 min | "pred N min" |
+| 1 hodina | "pred hodinou" |
+| < 24 hod | "pred N hod" |
+| 1 deň | "včera" |
+| < 30 dní | "pred N dňami" |
+| 1 mesiac | "pred mesiacom" |
+| < 12 mes. | "pred N mes." |
+| ≥ 1 rok | plný dátum (sk-SK) |
+
+Pri hover sa zobrazí tooltip (`title` atribút) s plným dátumom, čo zachováva presnú informáciu pre prípad potreby.
+
+#### Skeleton loading
+Nový komponent `SkeletonCard.tsx` zobrazuje animovaný placeholder s rovnakou štruktúrou ako `ArticleCard` — obsahuje sivé bloky pre klub, dátum, nadpis (2 riadky), preview (3 riadky) a badge. Animácia `@keyframes shimmer` prechádza gradientom zľava doprava (800px background-size, 1.4s cyklus). Tmavý režim používa tmavšie farby gradientu. Počas načítavania sa renderuje 6 skeletonov v rovnakom CSS gride ako reálne karty — používateľ vidí okamžite tvar budúceho obsahu bez content layout shiftu.
+
+#### Oprava klikateľnosti kariet
+Overlay `<a>` odkaz bol na `z-index: 0` (pod obsahom karty) — klik na text teda nedosiahol overlay a navigácia nefungovala. Oprava: overlay presunutý na `z-index: 2` (nad všetkým obsahom), tlačidlo ↗ na `z-index: 3` (nad overlayom, zostáva nezávislé). Keďže overlay je transparentný, vizuálny vzhľad sa nezmenil.
 
 ---
 
