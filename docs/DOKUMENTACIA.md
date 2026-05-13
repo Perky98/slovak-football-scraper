@@ -597,8 +597,8 @@ Claude Code bol použitý ako hlavný vývojový asistent počas celého projekt
 
 - LLM asistent dramaticky zrýchľuje vývoj, ale výstupy treba vždy overiť v reálnom prostredí — najmä URL a konfiguráciu
 - Claude Code zvládol celý development workflow vrátane build kontroly, git commitov a dokumentácie
-- DeepSeek ako runtime AI komponent presne kategorizuje slovenské futbalové texty
-- Kombinácia LLM pri vývoji + LLM v produkte je efektívna architektúra pre informačné agregátory
-- Rôzne weby majú radikálne odlišné štruktúry — generický scraper musí mať robustný fallback mechanizmus
-- Client-side Firebase SDK je jednoduchšie a spoľahlivejšie riešenie pre admin operácie ako server-side prístup s JWT tokenmi
-- Úprimná reflexia neúspechov (séria nefunkčných admin riešení) je cennejšia ako popis len úspešných krokov
+- Primárny problém vidím, že ked vibe kódujem, tak nepoznám štrukúru projektu a rýchlo sa v projekte stratím, ked si nepamatám čo som robil.
+- Výhodou je AI pre existujúce projekty, kde mi to dokáže veľmi ušetriť čas, ked zistujem či mám určitý komponent v mojom projekte a kde je je veľmi výhodné riešiť cez Claude.
+- Ďalšou nevýhodou sú tokeny, že sú obmedzené.
+- Podľa mňa AI je veľmi dobrý pomocník, ale musíš ho kontrolovať čo píše a čo robí.
+- Toto bol môj projekt, ktorý som chcel nasadiť na môj web, ale zle som identifikoval UseCase, je zbytočné scrapovať weby klubov. Najvýhodnejšie je cez API získať dáta zo zápasu a spraviť report. Ale na chybách sa učíme. Takže tento považujem za veľmi úspešný.
